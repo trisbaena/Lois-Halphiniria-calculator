@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 // Single-file React component (default export)
 // TailwindCSS styling, minimal + clean
@@ -6,39 +6,45 @@ import React, { useMemo, useState } from "react";
 // Closing tags verified — 2025-09-25
 
 // ---------- Utilities ----------
-// N-Meseta icon (remote URL per user request)
-const NM_ICON = "/n-meseta.png";
-const NM_ICON_FALLBACK = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='10' fill='%23f2c94c'/><circle cx='12' cy='12' r='6' fill='%23f7e06e'/></svg>";
+// N-Meseta icon (local with robust fallbacks)
+const NM_ICON = "/n-meseta.png"; // old icon kept
+const NM_ICON_V2 = "/n-mesetav2.png"; // new icon (place file in /public)
+const NM_ICON_FALLBACK =
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='10' fill='%23f2c94c'/><circle cx='12' cy='12' r='6' fill='%23f7e06e'/></svg>";
 
-const formatMoney = (n) => {
-  if (n === null || n === undefined || isNaN(n)) return "0";
+const formatMoney = (n: number | null | undefined): string => {
+  if (n === null || n === undefined || isNaN(n as any)) return "0";
   return Number(n).toLocaleString("en-US");
 };
 
-const parseNum = (v) => {
+const parseNum = (v: unknown): number => {
   if (v === "" || v === null || v === undefined) return 0;
-  const n = Number(String(v).replace(/,/g, ""));
+  const n = Number(String(v as string).replace(/,/g, ""));
   return isNaN(n) ? 0 : n;
 };
 
 // format an input string to include thousand separators while typing
-const formatWithCommasStr = (v) => {
-  const digits = String(v).replace(/[^0-9]/g, "");
+const formatWithCommasStr = (v: unknown): string => {
+  const digits = String(v ?? "").replace(/[^0-9]/g, "");
   if (digits === "") return "";
   return Number(digits).toLocaleString("en-US");
 };
 
 // ---------- Row ----------
-function MaterialRow({
-  nameJP,
-  nameEN,
-  amount,
-  having,
-  price,
-  onChangeHaving,
-  onChangePrice,
-  maxHaving,
-}) {
+interface MaterialRowProps {
+  nameJP: string;
+  nameEN: string;
+  amount: number;
+  having: string;
+  price: string;
+  onChangeHaving: (v: string) => void;
+  onChangePrice: (v: string) => void;
+  maxHaving?: number;
+}
+
+function MaterialRow(props: MaterialRowProps) {
+  const { nameJP, nameEN, amount, having, price, onChangeHaving, onChangePrice, maxHaving } = props;
+
   const sum = useMemo(() => {
     const need = Math.max(0, amount - parseNum(having));
     return parseNum(price) * need;
@@ -113,7 +119,20 @@ function MaterialRow({
             placeholder="0"
           />
           <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-neutral-400">
-            <img src={NM_ICON} onError={(e) => { e.currentTarget.src = NM_ICON_FALLBACK; }} alt="N-Meseta" className="h-4 w-4" />
+            <img
+              src={NM_ICON_V2}
+              onError={(e) => {
+                const img = e.currentTarget as HTMLImageElement;
+                if ((img.dataset.altTried || "0") === "0") {
+                  img.dataset.altTried = "1";
+                  img.src = NM_ICON; // fallback to old local icon
+                } else {
+                  img.src = NM_ICON_FALLBACK; // final inline fallback
+                }
+              }}
+              alt="N-Meseta"
+              className="h-4 w-4"
+            />
           </span>
         </div>
       </div>
@@ -146,7 +165,7 @@ export default function LoisHalphiniriaCalculator() {
     lux: 10,
     marcis: 10,
     base: 50,
-  };
+  } as const;
 
   // Per-row sums (price × (Require - Owned))
   const sumLux = useMemo(() => {
@@ -171,36 +190,6 @@ export default function LoisHalphiniriaCalculator() {
     const r = totalRevenue === 0 ? 0 : (netIncome / totalRevenue) * 100;
     return r;
   }, [netIncome, totalRevenue]);
-
-  // ---- Controls helpers (kept for future; panel is empty per user) ----
-  const [priceTarget, setPriceTarget] = useState("lux"); // 'lux' | 'marcis' | 'base'
-
-  const setHavingToMax = () => {
-    setLuxHaving(String(AMOUNT.lux));
-    setMarcisHaving(String(AMOUNT.marcis));
-    setBaseHaving(String(AMOUNT.base));
-  };
-
-  const setHavingToZero = () => {
-    setLuxHaving("0");
-    setMarcisHaving("0");
-    setBaseHaving("0");
-  };
-
-  const addDeltaToOne = (target, delta) => {
-    const clamp = (n) => Math.max(0, n);
-    if (target === "lux") setLuxPrice(formatMoney(clamp(parseNum(luxPrice) + delta)));
-    if (target === "marcis") setMarcisPrice(formatMoney(clamp(parseNum(marcisPrice) + delta)));
-    if (target === "base") setBasePrice(formatMoney(clamp(parseNum(basePrice) + delta)));
-  };
-
-  const resetPrices = () => {
-    setLuxPrice("");
-    setMarcisPrice("");
-    setBasePrice("");
-    setSellPrice("");
-  };
-
   return (
     <div className="min-h-screen bg-black text-neutral-100" data-fix="closing-tags-verified">
       <div className="mx-auto max-w-6xl px-5 py-10">
@@ -264,7 +253,7 @@ export default function LoisHalphiniriaCalculator() {
 
         {/* Summary */}
         <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Left: Revenue + KPIs (restored) */}
+          {/* Left: Revenue + KPIs */}
           <div className="rounded-2xl border border-neutral-800 p-5 shadow-sm">
             <div className="mb-3 text-sm font-semibold text-neutral-300">Total Revenue (Sell Price)</div>
             <div className="relative">
@@ -277,7 +266,20 @@ export default function LoisHalphiniriaCalculator() {
                 placeholder="0"
               />
               <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-sm text-neutral-400">
-                <img src={NM_ICON} onError={(e) => { e.currentTarget.src = NM_ICON_FALLBACK; }} alt="N-Meseta" className="h-4 w-4" />
+                <img
+                  src={NM_ICON_V2}
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    if ((img.dataset.altTried || "0") === "0") {
+                      img.dataset.altTried = "1";
+                      img.src = NM_ICON; // fallback to old local icon
+                    } else {
+                      img.src = NM_ICON_FALLBACK; // final inline fallback
+                    }
+                  }}
+                  alt="N-Meseta"
+                  className="h-4 w-4"
+                />
               </span>
             </div>
 
@@ -286,21 +288,62 @@ export default function LoisHalphiniriaCalculator() {
                 <div className="text-neutral-400">Gross profit</div>
                 <div className="text-xl font-bold flex items-center gap-2">
                   <span>{formatMoney(grossProfit)}</span>
-                  <img src={NM_ICON} onError={(e) => { e.currentTarget.src = NM_ICON_FALLBACK; }} alt="N-Meseta" className="h-4 w-4" />
+                  <img
+                    src={NM_ICON_V2}
+                    onError={(e) => {
+                      const img = e.currentTarget as HTMLImageElement;
+                      if ((img.dataset.altTried || "0") === "0") {
+                        img.dataset.altTried = "1";
+                        img.src = NM_ICON;
+                      } else {
+                        img.src = NM_ICON_FALLBACK;
+                      }
+                    }}
+                    alt="N-Meseta"
+                    className="h-4 w-4"
+                  />
                 </div>
               </div>
               <div className="rounded-xl bg-neutral-900 p-4">
-                <div className="text-neutral-400">EBT (Tax) <span className="text-xs">= Revenue × 5% </span></div>
+                <div className="text-neutral-400">
+                  EBT (Tax) <span className="text-xs">= Revenue × 5% </span>
+                </div>
                 <div className="text-xl font-bold flex items-center gap-2">
                   <span>{formatMoney(ebtTax)}</span>
-                  <img src={NM_ICON} onError={(e) => { e.currentTarget.src = NM_ICON_FALLBACK; }} alt="N-Meseta" className="h-4 w-4" />
+                  <img
+                    src={NM_ICON_V2}
+                    onError={(e) => {
+                      const img = e.currentTarget as HTMLImageElement;
+                      if ((img.dataset.altTried || "0") === "0") {
+                        img.dataset.altTried = "1";
+                        img.src = NM_ICON;
+                      } else {
+                        img.src = NM_ICON_FALLBACK;
+                      }
+                    }}
+                    alt="N-Meseta"
+                    className="h-4 w-4"
+                  />
                 </div>
               </div>
               <div className="rounded-xl bg-neutral-900 p-4">
                 <div className="text-neutral-400">Net income (N)</div>
                 <div className="text-xl font-bold flex items-center gap-2">
                   <span>{formatMoney(netIncome)}</span>
-                  <img src={NM_ICON} onError={(e) => { e.currentTarget.src = NM_ICON_FALLBACK; }} alt="N-Meseta" className="h-4 w-4" />
+                  <img
+                    src={NM_ICON_V2}
+                    onError={(e) => {
+                      const img = e.currentTarget as HTMLImageElement;
+                      if ((img.dataset.altTried || "0") === "0") {
+                        img.dataset.altTried = "1";
+                        img.src = NM_ICON;
+                      } else {
+                        img.src = NM_ICON_FALLBACK;
+                      }
+                    }}
+                    alt="N-Meseta"
+                    className="h-4 w-4"
+                  />
                 </div>
               </div>
               <div className="rounded-xl bg-neutral-900 p-4">
@@ -315,17 +358,78 @@ export default function LoisHalphiniriaCalculator() {
             <h2 className="mb-4 text-2xl font-extrabold tracking-tight">สรุป</h2>
             <div className="mb-3 rounded-xl bg-neutral-900 p-4">
               <div className="text-sm leading-relaxed">
-                ต้องการ <img src={NM_ICON} onError={(e) => { e.currentTarget.src = NM_ICON_FALLBACK; }} alt="N-Meseta" className="inline h-4 w-4 align-[-2px]" /> Meseta ในการซื้อหลอด Augment เป็นจำนวน <span className="font-bold text-yellow-400">{formatMoney(totalExpenses)}</span> <img src={NM_ICON} onError={(e) => { e.currentTarget.src = NM_ICON_FALLBACK; }} alt={"N-Meseta"} className="inline h-4 w-4 align-[-2px]" />
+                ต้องการ <img
+                  src={NM_ICON_V2}
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    if ((img.dataset.altTried || "0") === "0") {
+                      img.dataset.altTried = "1";
+                      img.src = NM_ICON;
+                    } else {
+                      img.src = NM_ICON_FALLBACK;
+                    }
+                  }}
+                  alt="N-Meseta"
+                  className="inline h-4 w-4 align-[-2px]"
+                />
+                {" "}Meseta ในการซื้อหลอด Augment เป็นจำนวน {" "}
+                <span className="font-bold text-yellow-400">{formatMoney(totalExpenses)}</span>{" "}
+                <img
+                  src={NM_ICON_V2}
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    if ((img.dataset.altTried || "0") === "0") {
+                      img.dataset.altTried = "1";
+                      img.src = NM_ICON;
+                    } else {
+                      img.src = NM_ICON_FALLBACK;
+                    }
+                  }}
+                  alt="N-Meseta"
+                  className="inline h-4 w-4 align-[-2px]"
+                />
               </div>
             </div>
             <div className="mb-3 rounded-xl bg-neutral-900 p-4">
               <div className="text-sm leading-relaxed">
-                หากลงขายตลาดจะได้เป็นเงิน <span className="font-bold text-green-400">{formatMoney(totalRevenue)}</span> <img src={NM_ICON} onError={(e) => { e.currentTarget.src = NM_ICON_FALLBACK; }} alt="N-Meseta" className="inline h-4 w-4 align-[-2px]" /> Meseta
+                หากลงขายตลาดจะได้เป็นเงิน {" "}
+                <span className="font-bold text-green-400">{formatMoney(totalRevenue)}</span>{" "}
+                <img
+                  src={NM_ICON_V2}
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    if ((img.dataset.altTried || "0") === "0") {
+                      img.dataset.altTried = "1";
+                      img.src = NM_ICON;
+                    } else {
+                      img.src = NM_ICON_FALLBACK;
+                    }
+                  }}
+                  alt="N-Meseta"
+                  className="inline h-4 w-4 align-[-2px]"
+                />
+                {" "}Meseta
               </div>
             </div>
             <div className="rounded-xl bg-neutral-900 p-4">
               <div className="text-sm leading-relaxed">
-                กำไรทั้งหมดเมื่อหักลบต้นทุน <span className="font-bold text-green-400">{formatMoney(netIncome)}</span> <img src={NM_ICON} onError={(e) => { e.currentTarget.src = NM_ICON_FALLBACK; }} alt="N-Meseta" className="inline h-4 w-4 align-[-2px]" /> Meseta
+                กำไรทั้งหมดเมื่อหักลบต้นทุน {" "}
+                <span className="font-bold text-green-400">{formatMoney(netIncome)}</span>{" "}
+                <img
+                  src={NM_ICON_V2}
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    if ((img.dataset.altTried || "0") === "0") {
+                      img.dataset.altTried = "1";
+                      img.src = NM_ICON;
+                    } else {
+                      img.src = NM_ICON_FALLBACK;
+                    }
+                  }}
+                  alt="N-Meseta"
+                  className="inline h-4 w-4 align-[-2px]"
+                />
+                {" "}Meseta
               </div>
             </div>
           </div>
@@ -347,7 +451,7 @@ export default function LoisHalphiniriaCalculator() {
               >
                 {/* Discord icon (inline SVG) */}
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
-                  <path d="M20.317 4.369A19.791 19.791 0 0 0 16.558 3c-.2.36-.432.85-.593 1.23a18.27 18.27 0 0 0-4.93 0A12.26 12.26 0 0 0 10.441 3a19.736 19.736 0 0 0-3.761 1.369C3.612 8.023 2.969 11.58 3.176 15.09a19.94 19.94 0 0 0 6.052 3.043c.487-.673.923-1.39 1.3-2.139a12.77 12.77 0 0 1-1.996-.765c.168-.123.333-.252.491-.387a13.9 13.9 0 0 0 6.954 0c.158.135.323.264.491.387-.65.273-1.323.509-1.996.765.377.75.813 1.466 1.3 2.139a19.94 19.94 0 0 0 6.052-3.043c.258-4.265-.44-7.8-2.407-10.721ZM9.507 13.59c-.85 0-1.545-.79-1.545-1.764 0-.975.686-1.765 1.545-1.765.868 0 1.563.79 1.545 1.765 0 .974-.677 1.764-1.545 1.764Zm4.986 0c-.85 0-1.545-.79-1.545-1.764 0-.975.686-1.765 1.545-1.765.868 0 1.563.79 1.545 1.765 0 .974-.677 1.764-1.545 1.764Z"/>
+                  <path d="M20.317 4.369A19.791 19.791 0 0 0 16.558 3c-.2.36-.432.85-.593 1.23a18.27 18.27 0 0 0-4.93 0A12.26 12.26 0 0 0 10.441 3a19.736 19.736 0 0 0-3.761 1.369C3.612 8.023 2.969 11.58 3.176 15.09a19.94 19.94 0 0 0 6.052 3.043c.487-.673.923-1.39 1.3-2.139a12.77 12.77 0 0 1-1.996-.765c.168-.123.333-.252.491-.387a13.9 13.9 0 0 0 6.954 0c.158.135.323.264.491.387-.65.273-1.323.509-1.996.765.377.75.813 1.466 1.3 2.139a19.94 19.94 0 0 0 6.052-3.043c.258-4.265-.44-7.8-2.407-10.721ZM9.507 13.59c-.85 0-1.545-.79-1.545-1.764 0-.975.686-1.765 1.545-1.765.868 0 1.563.79 1.545 1.765 0 .974-.677 1.764-1.545 1.764Zm4.986 0c-.85 0-1.545-.79-1.545-1.764 0-.975.686-1.765 1.545-1.765.868 0 1.563.79 1.545 1.765 0 .974-.677 1.764-1.545 1.764Z" />
                 </svg>
               </a>
               <a
@@ -427,18 +531,24 @@ if (typeof window !== "undefined") {
   console.assert(net === 8_400_000, "Net income math fails");
 
   // Owned step button math (simulation)
-  const stepClamp = (x, d) => Math.max(0, x + d);
+  const stepClamp = (x: number, d: number): number => Math.max(0, x + d);
   console.assert(stepClamp(7, -1) === 6, "Owned '<' should decrement to 6 from 7");
   console.assert(stepClamp(0, -1) === 0, "Owned should not go below 0");
   console.assert(stepClamp(7, +1) === 8, "Owned '>' should increment to 8 from 7");
 
   // Base Data cap = 50
-  const cap50 = (x) => Math.min(50, Math.max(0, x));
+  const cap50 = (x: number): number => Math.min(50, Math.max(0, x));
   console.assert(cap50(51) === 50, "Base Data should not exceed 50");
   console.assert(cap50(-1) === 0, "Base Data should not go below 0");
 
   // Lux/Marcis cap = 10
-  const cap10 = (x) => Math.min(10, Math.max(0, x));
+  const cap10 = (x: number): number => Math.min(10, Math.max(0, x));
   console.assert(cap10(11) === 10, "Lux/Marcis should not exceed 10");
   console.assert(cap10(-2) === 0, "Lux/Marcis should not go below 0");
+
+  // New tests: ensure need never negative & % safe
+  const needClamp = (req: number, own: number) => Math.max(0, req - own);
+  console.assert(needClamp(10, 12) === 0, "Need should be 0 when owned exceeds require");
+  const pct = (ni: number, rev: number) => (rev === 0 ? 0 : (ni / rev) * 100);
+  console.assert(pct(0, 0) === 0, "Percent should be 0 when revenue=0");
 }
